@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <style>
+    </style>
+</head>
+
+<body>
+    <svg width="960" height="500" style="border:1px solid red;">
+    </svg>
+    <script src="https://d3js.org/d3.v5.js"></script>
+    <script>
+        if (!Array.prototype.first) {
+            Array.prototype.first = function () {
+                return (this.length) ? this[0] : null
+            };
+        }
+        if (!Array.prototype.last) {
+            Array.prototype.last = function () {
+                return (this.length) ? this[this.length - 1] : null
+            };
+        }
+
+        function sortPointArray(arr) {
+            return arr.concat().sort(function (a, b) {
+                if (a.x == b.x) return a.y - b.y;
+                return a.x - b.x;
+            });
+        }
+
+        function removeSamePoints(arr) {
+            var sortedArr = sortPointArray(arr)
+            var filtered = sortedArr.filter(function (current, i, arr) {
+                log(arguments)
+                let next = (i + 1) <= arr.length - 1 ? arr[i + 1] : null
+                if (next && isPointingSamePoint(current, next)) {
+                    return false;
+                }
+                return true
+            })
+            return filtered
+        }
+
+        function isPointingSamePoint(p1, p2) {
+            return p1.x == p2.x && p1.y == p2.y
+        }
+
+        let log = console.log
+        let table = console.table
+        let isStartedToDraw = false
+        let pointStart = document.querySelector("svg").createSVGPoint()
+        let pointStop = document.querySelector("svg").createSVGPoint()
+        let data = []
+
+        var svg = d3.select("svg")
+
+        var linearfn = d3.line()
+            .x(d => d.x)
+            .y(d => d.y)
+            .curve(d3.curveLinear)
+
+
+        function updatePath() {
+            svg.selectAll("path")
+                .attr("fill", "none")
+                .attr("stroke", "black")
+                .attr("stroke-width", 2)
+                .attr("d", linearfn(data))
+        }
+
+        function drawPath() {
+            log(data)
+            svg.selectAll("path") // SVG içinde tanımlı path elemanlarını bul
+                .data([1]).enter() // 1 elemanlı dizinin eleman sayısı kadarı için enter()
+                .append('path') // dizi elemanı kadar path oluştur
+                .attr("fill", "none")
+                .attr("stroke", "black")
+                .attr("stroke-width", 2)
+                .attr("d", linearfn(data))
+        }
+
+        function drawPoints() {
+            table(data)
+            var circleData = removeSamePoints(data)
+            // if (circleData.length > 1 && isPointingSamePoint(circleData.first(), circleData.last())) {
+            //     circleData.splice(0, circleData.length)
+            // }
+
+            svg.selectAll("circle").remove()
+
+            svg.selectAll("circle")
+                .data(circleData)
+                .enter()
+                .append("circle")
+                .attr("cx", d => d.x + .5)
+                .attr("cy", d => d.y + .5)
+                .attr("r", 10)
+                .attr("stroke-width", 3)
+                .attr("stroke", "red")
+                .attr("cursor", "move")
+                .style("fill", "transparent")
+                .attr("pointer-events", "all")
+                .on("mouseover", function (d) {
+                    d3.select(this)
+                        .attr("r", +d3.select(this).attr("r") + 5)
+                        .attr("stroke", "blue")
+                })
+                .on("mouseout", function (d) {
+                    d3.select(this)
+                        .attr("r", +d3.select(this).attr("r") - 5)
+                        .attr("stroke", "red")
+                })
+                .on("click", function (d) {
+                    event.stopPropagation();
+                    log(data[0], "click oldu: ", d)
+                    data.push(d)
+                    updatePath()
+                    drawPoints()
+                    isStartedToDraw = false
+                })
+                .call(d3.drag()
+                    .on("start", function (d, i) {
+                        log("drag started", d, i)
+                    })
+                    .on("drag", function (d, i) {
+                        log("dragging", d, i)
+                        data[i].x = event.x - 8
+                        data[i].y = event.y - 8
+
+                        d3.select(this)
+                            .attr("cx", data[i].x)
+                            .attr("cy", data[i].y)
+
+                        updatePath()
+                    })
+                    .on("end", function (d) {
+                        log("drag ended", d)
+                    })
+                )
+        } -
+
+        svg.on("click", function () {
+                log("tagName: ", event.target.tagName)
+                isStartedToDraw = true // çizmeye başladık
+                pointStart.x = event.x - 8
+                pointStart.y = event.y - 8
+
+                data.push({
+                    x: pointStart.x,
+                    y: pointStart.y
+                })
+
+                drawPath()
+                drawPoints()
+            })
+            .on("mousemove", function () {
+                // fare hareketinde de çizdireceğiz ama x,y noktasını 
+                // tıklanıncaya kadar diziye eklemeyeceğiz
+                if (isStartedToDraw) {
+                    pointStop.x = event.x - 8
+                    pointStop.y = event.y - 8
+
+                    svg.select("path")
+                        .attr("d", linearfn(data.concat({
+                            x: pointStop.x,
+                            y: pointStop.y
+                        })))
+                }
+            })
+    </script>
+</body>
+
+</html>
